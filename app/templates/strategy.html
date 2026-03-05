@@ -1,48 +1,320 @@
- <h1>Strategy Dashboard</h1>
-    <div class="section">
-        <h2>Strategy Testing</h2>
-        <div class="controls">
-            <label for="strategy-select">Select Strategy:</label>
-            <select id="strategy-select">
-                <option value="">-- Choose a strategy --</option>
-                {% for strategy in strategies %}
-                    <option value="{{ strategy }}">{{ strategy }}</option>
-                {% endfor %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basil TrueData Institutional Chart</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root { 
+            --bg: #0d1117; 
+            --panel: #161b22; 
+            --text: #c9d1d9; 
+            --accent: #2f81f7; 
+            --border: #30363d; 
+            --success: #3fb950; 
+            --danger: #f85149; 
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: var(--bg); 
+            color: var(--text); 
+        }
+        h1 { text-align: center; color: var(--text); margin-bottom: 30px; font-weight: 600; letter-spacing: -0.5px; }
+        
+        .toolbar { 
+            background: var(--panel); 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border); 
+            display: flex; 
+            gap: 20px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            margin-bottom: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .toolbar-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 12px; color: #8b949e; font-weight: bold; text-transform: uppercase; }
+        select, input, button { 
+            padding: 10px 14px; 
+            font-size: 14px; 
+            border-radius: 6px; 
+            border: 1px solid var(--border); 
+            background: var(--bg); 
+            color: var(--text); 
+            outline: none; 
+        }
+        select:focus, input:focus { border-color: var(--accent); }
+        button { 
+            background: var(--accent); 
+            color: white; 
+            cursor: pointer; 
+            font-weight: 600; 
+            border: none; 
+            margin-top: 22px; 
+            padding: 10px 24px;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        
+        #status-bar { 
+            font-family: monospace; 
+            font-size: 13px;
+            padding: 10px 0 20px 0; 
+            color: #8b949e; 
+        }
+        
+        #chart-wrapper { 
+            position: relative; 
+            width: 100%; 
+            height: 650px; 
+            background: var(--bg); 
+            border-radius: 8px; 
+            border: 1px solid var(--border); 
+            overflow: hidden;
+        }
+        #chart-container { width: 100%; height: 100%; }
+        
+        #legend { 
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            z-index: 10; 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 14px; 
+            background: rgba(22, 27, 34, 0.85); 
+            padding: 12px; 
+            border-radius: 6px; 
+            display: none; 
+            pointer-events: none; 
+            border: 1px solid var(--border); 
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📈 True Data Terminal</h1>
+    
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <label>1. Select Market</label>
+            <select id="category" onchange="fetchSymbols()">
+                <option value="" disabled selected>Select Category...</option>
+                <option value="NSE_EQ">NSE Equities (Stocks)</option>
+                <option value="NSE_INDICES">NSE Indices (Nifty, etc.)</option>
+                <option value="NSE_FUT_CONT">NSE Futures</option>
+                <option value="NSE_OPT_CONT">NSE Options</option>
+                <option value="BSE_EQ">BSE Equities</option>
             </select>
-            <button id="run-strategy-btn">Run Strategy</button>
         </div>
-        <div class="status" id="strategy-status"></div>
-        <div class="results" id="strategy-results"></div>
+
+        <div class="toolbar-group">
+            <label>2. Select Symbol</label>
+            <select id="symbol-dropdown" style="min-width: 250px;">
+                <option value="">Waiting for market selection...</option>
+            </select>
+        </div>
+
+        <div class="toolbar-group">
+            <label>3. Timeframe</label>
+            <select id="barsize">
+                <option value="1 min">1 Min (Intraday)</option>
+                <option value="5 min" selected>5 Min (Intraday)</option>
+                <option value="15 min">15 Min (Short-Term)</option>
+                <option value="60 min">1 Hour (Medium-Term)</option>
+                <option value="EOD">Daily (Macro)</option>
+            </select>
+        </div>
+
+        <button onclick="loadChart()">Render Chart</button>
+    </div>
+
+    <div id="status-bar">System Ready. Select a market category to begin.</div>
+
+    <div id="chart-wrapper">
+        <div id="legend"></div>
+        <div id="chart-container"></div>
     </div>
 
     <script>
-        document.getElementById('run-strategy-btn').addEventListener('click', function() {
-            const strategy = document.getElementById('strategy-select').value;
-            const statusEl = document.getElementById('strategy-status');
-            const resultsEl = document.getElementById('strategy-results');
+        const API_BASE = "/api"; 
+        let chart, candleSeries, volSeries;
 
-            if (!strategy) {
-                alert('Please select a strategy to run.');
+        function initChart() {
+            if (chart) return; 
+            
+            const container = document.getElementById('chart-container');
+            
+            chart = LightweightCharts.createChart(container, {
+                layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+                grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                rightPriceScale: { borderColor: '#30363d' },
+                timeScale: { borderColor: '#30363d', timeVisible: true }
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#3fb950', downColor: '#f85149', 
+                borderVisible: false, wickUpColor: '#3fb950', wickDownColor: '#f85149',
+                priceFormat: { type: 'price', precision: 2, minMove: 0.05 }
+            });
+
+            volSeries = chart.addHistogramSeries({
+                priceFormat: { type: 'volume' },
+                priceScaleId: '', 
+                scaleMargins: { top: 0.8, bottom: 0 } 
+            });
+
+            new ResizeObserver(entries => {
+                if (entries.length === 0 || entries[0].target !== document.getElementById('chart-wrapper')) return;
+                chart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+            }).observe(document.getElementById('chart-wrapper'));
+
+            chart.subscribeCrosshairMove((param) => {
+                const legend = document.getElementById('legend');
+                if (!param.time || param.point.x < 0 || param.point.y < 0) {
+                    legend.style.display = 'none'; return;
+                }
+                const price = param.seriesData.get(candleSeries);
+                const vol = param.seriesData.get(volSeries);
+                if (price) {
+                    const symName = document.getElementById('symbol-dropdown').value;
+                    legend.style.display = 'block';
+                    legend.innerHTML = `
+                        <span style="color:#58a6ff; font-weight:bold; font-size:16px;">${symName}</span><br>
+                        O: ${price.open.toFixed(2)}<br>
+                        H: ${price.high.toFixed(2)}<br>
+                        L: ${price.low.toFixed(2)}<br>
+                        C: ${price.close.toFixed(2)}<br>
+                        V: ${vol ? vol.value.toLocaleString() : 0}
+                    `;
+                }
+            });
+        }
+
+        async function fetchSymbols() {
+            const category = document.getElementById('category').value;
+            const dropdown = document.getElementById('symbol-dropdown');
+            const status = document.getElementById('status-bar');
+
+            status.innerHTML = `⏳ Fetching official master list for ${category}...`;
+            status.style.color = "var(--text)";
+            dropdown.innerHTML = '<option>Loading...</option>';
+
+            try {
+                const res = await fetch(`${API_BASE}/symbols/${category}`);
+                if (!res.ok) throw new Error(`API Error ${res.status}`);
+                const data = await res.json();
+
+                dropdown.innerHTML = ''; 
+                data.symbols.forEach(sym => {
+                    let opt = document.createElement('option');
+                    opt.value = sym;
+                    opt.innerHTML = sym;
+                    dropdown.appendChild(opt);
+                });
+                
+                status.innerHTML = `✅ Loaded <b>${data.total_count}</b> symbols. Select one and click Render Chart.`;
+                status.style.color = "var(--success)";
+            } catch (err) {
+                status.innerHTML = "❌ Failed to fetch symbols. Make sure your FastAPI server is running.";
+                status.style.color = "var(--danger)";
+                dropdown.innerHTML = '<option>Error loading symbols</option>';
+            }
+        }
+
+        async function loadChart() {
+            const symbol = document.getElementById('symbol-dropdown').value;
+            const barsize = document.getElementById('barsize').value;
+            const status = document.getElementById('status-bar');
+
+            if (!symbol || symbol === "Loading..." || symbol === "Waiting for market selection...") {
+                alert("Please fetch a market category and select a symbol first.");
                 return;
             }
 
-            statusEl.textContent = 'Running strategy...';
-            resultsEl.textContent = '';
+            // Expand daily duration to fetch ALL historical data (10 Years)
+            let duration = "10 D";
+            if (barsize === "EOD") duration = "10 Y";
+            else if (barsize === "60 min") duration = "60 D";
+            else if (barsize === "15 min") duration = "30 D";
+            else if (barsize === "1 min") duration = "5 D";
 
-            fetch(`/run_strategy/${encodeURIComponent(strategy)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        statusEl.textContent = `Error: ${data.error}`;
-                        resultsEl.textContent = '';
-                    } else {
-                        statusEl.textContent = 'Strategy executed successfully!';
-                        resultsEl.textContent = JSON.stringify(data, null, 2);
+            status.innerHTML = `⏳ Fetching ${duration} of ${barsize} historical data for ${symbol}...`;
+            status.style.color = "var(--text)";
+
+            try {
+                const url = `${API_BASE}/history/${encodeURIComponent(symbol)}?duration=${encodeURIComponent(duration)}&bar_size=${encodeURIComponent(barsize)}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("API returned 404 or Market Data is unavailable.");
+                
+                const data = await res.json();
+                
+                initChart(); 
+
+                const rawData = data.data;
+                if (!rawData || rawData.length === 0) {
+                    throw new Error("No candle data returned from TrueData.");
+                }
+
+                console.log("RAW DATA SAMPLE:", rawData[0]); 
+
+                const candles = [];
+                const volumes = [];
+                let lastTime = null; 
+
+                // THE FIX: Looking explicitly for "timestamp" from your JSON
+                rawData.forEach(d => {
+                    let timeVal = d.timestamp ?? d.time ?? d.Time ?? d.date ?? d.Date;
+                    
+                    if (timeVal === undefined || timeVal === null) return; 
+
+                    let timeUnix = new Date(timeVal).getTime() / 1000;
+
+                    if (timeUnix === lastTime) return;
+                    lastTime = timeUnix;
+
+                    const open = parseFloat(d.open ?? d.o);
+                    const high = parseFloat(d.high ?? d.h);
+                    const low = parseFloat(d.low ?? d.l);
+                    const close = parseFloat(d.close ?? d.c);
+                    const volume = parseFloat(d.volume ?? d.v ?? 0);
+
+                    if (!isNaN(open) && !isNaN(high) && !isNaN(low) && !isNaN(close)) {
+                        candles.push({ time: timeUnix, open: open, high: high, low: low, close: close });
+                        volumes.push({
+                            time: timeUnix, 
+                            value: volume, 
+                            color: close >= open ? 'rgba(63, 185, 80, 0.4)' : 'rgba(248, 81, 73, 0.4)'
+                        });
                     }
-                })
-                .catch(error => {
-                    statusEl.textContent = `Error: ${error.message}`;
-                    resultsEl.textContent = '';
                 });
-        });
+
+                candles.sort((a, b) => a.time - b.time);
+                volumes.sort((a, b) => a.time - b.time);
+
+                if (candles.length === 0) {
+                    throw new Error("Could not parse data. Ensure your backend provides timestamp, open, high, low, close.");
+                }
+
+                candleSeries.setData(candles);
+                volSeries.setData(volumes);
+                chart.timeScale().fitContent();
+
+                status.innerHTML = `✅ Successfully rendered <b>${candles.length}</b> candles for ${symbol}.`;
+                status.style.color = "var(--success)";
+
+            } catch (err) {
+                console.error(err);
+                status.innerHTML = `❌ Failed to load chart data: ${err.message}`;
+                status.style.color = "var(--danger)";
+            }
+        }
     </script>
+</body>
+</html>

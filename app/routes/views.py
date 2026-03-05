@@ -15,3 +15,4 @@ async def serve_home(request: Request):
 @router.get("/strategy")
 async def serve_strategy(request: Request):
     return templates.TemplateResponse("strategy.html", {"request": request})
+

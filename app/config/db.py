@@ -9,7 +9,7 @@ def get_db_connection():
             host='localhost',
             user='root',
             password='',
-            # database='your_database_name' # Uncomment when you create the DB in XAMPP
+            database='basil_str' 
         )
         
         print("--> Connection attempt finished!")

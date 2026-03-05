@@ -3,6 +3,8 @@ python -m venv venv
 Activate It
 venv\Scripts\activate
 
+pip install pandas-ta
+
 pip install truedata python-dotenv
 
 // to run flask project
