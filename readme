@@ -1,3 +1,4 @@
+python -m venv venv
 
 Activate It
 venv\Scripts\activate
@@ -6,6 +7,15 @@ pip install truedata python-dotenv
 
 // to run flask project
 pip install fastapi uvicorn jinja2 requests
+
+// connector installed in environment
+pip install mysql-connector-python
+
+pip install pymysql
+
+
+
+
 
 // This will show actual available methods in YOUR installed version.
 python -c "from truedata import TD_hist; print(dir(TD_hist))"

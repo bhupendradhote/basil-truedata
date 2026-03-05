@@ -1,27 +1,40 @@
 # main.py
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+
 from app.api.routes import router as api_router
+from app.routes.views import router as web_router  
+from app.config.db import get_db_connection
 
-# Initialize the FastAPI app
-app = FastAPI(title="TrueData Market API")
+# Define startup and shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🔄 Checking XAMPP MySQL database connection on startup...")
+    db = get_db_connection()
+    if db:
+        print("✅ Database connection verified successfully!")
+        db.close()
+    else:
+        print("⚠️ Warning: Could not connect to the database. Check if XAMPP is running.")
+    
+    yield # The application runs here
+    
+    print("🛑 Shutting down server...")
 
-templates = Jinja2Templates(directory="app/templates")
+# Initialize the FastAPI app with the lifespan event
+app = FastAPI(title="TrueData Market API", lifespan=lifespan)
 
+# Include the API routes
 app.include_router(api_router, prefix="/api")
 
-@app.get("/")
-async def serve_home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
-
-@app.get("/strategy")
-async def serve_strategy(request: Request):
-    return templates.TemplateResponse("strategy.html", {"request": request})
+# Include the Web/UI routes (no prefix needed for root paths)
+app.include_router(web_router)
 
 def main():
-    print("🚀 Starting Server on http://127.0.0.1:800")
+    # Fixed the port to match 8001 exactly
+    print("🚀 Starting Server on http://127.0.0.1:8001")
     uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)
 
 if __name__ == "__main__":
