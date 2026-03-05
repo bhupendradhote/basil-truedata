@@ -1,0 +1,48 @@
+ <h1>Strategy Dashboard</h1>
+    <div class="section">
+        <h2>Strategy Testing</h2>
+        <div class="controls">
+            <label for="strategy-select">Select Strategy:</label>
+            <select id="strategy-select">
+                <option value="">-- Choose a strategy --</option>
+                {% for strategy in strategies %}
+                    <option value="{{ strategy }}">{{ strategy }}</option>
+                {% endfor %}
+            </select>
+            <button id="run-strategy-btn">Run Strategy</button>
+        </div>
+        <div class="status" id="strategy-status"></div>
+        <div class="results" id="strategy-results"></div>
+    </div>
+
+    <script>
+        document.getElementById('run-strategy-btn').addEventListener('click', function() {
+            const strategy = document.getElementById('strategy-select').value;
+            const statusEl = document.getElementById('strategy-status');
+            const resultsEl = document.getElementById('strategy-results');
+
+            if (!strategy) {
+                alert('Please select a strategy to run.');
+                return;
+            }
+
+            statusEl.textContent = 'Running strategy...';
+            resultsEl.textContent = '';
+
+            fetch(`/run_strategy/${encodeURIComponent(strategy)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusEl.textContent = `Error: ${data.error}`;
+                        resultsEl.textContent = '';
+                    } else {
+                        statusEl.textContent = 'Strategy executed successfully!';
+                        resultsEl.textContent = JSON.stringify(data, null, 2);
+                    }
+                })
+                .catch(error => {
+                    statusEl.textContent = `Error: ${error.message}`;
+                    resultsEl.textContent = '';
+                });
+        });
+    </script>

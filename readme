@@ -1,0 +1,22 @@
+
+Activate It
+venv\Scripts\activate
+
+pip install truedata python-dotenv
+
+// to run flask project
+pip install fastapi uvicorn jinja2 requests
+
+// This will show actual available methods in YOUR installed version.
+python -c "from truedata import TD_hist; print(dir(TD_hist))"
+
+
+python -c "from truedata import TD_hist; import inspect; print(inspect.signature(TD_hist.get_n_historical_bars))"
+
+python -c "from truedata import TD_hist; import inspect; print(inspect.signature(TD_hist.get_historic_data))"
+
+
+
+/ for live ws data, use the URL:
+
+https://wstest.truedata.in/

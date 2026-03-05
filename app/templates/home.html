@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueData API Tester</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 30px; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        h1 { text-align: center; color: #2c3e50; }
+        .section { 
+            background: #fff; 
+            padding: 25px; 
+            border-radius: 10px; 
+            margin-bottom: 30px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        h2 { margin-top: 0; color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .controls { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        select, input, button { 
+            padding: 10px 15px; 
+            font-size: 15px; 
+            border-radius: 5px; 
+            border: 1px solid #ccc; 
+            outline: none;
+        }
+        input:focus, select:focus { border-color: #007bff; }
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        .status { margin-bottom: 15px; font-weight: bold; }
+        .results { 
+            background: #1e1e1e; 
+            color: #00ff00; 
+            padding: 15px; 
+            border-radius: 5px; 
+            max-height: 400px; 
+            overflow-y: auto; 
+            font-family: 'Courier New', Courier, monospace; 
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>📈 Market Data API Dashboard</h1>
+    
+    <div class="section">
+        <h2>1. Fetch Master Symbols</h2>
+        <p>Pull the latest official symbol lists from TrueData servers.</p>
+        <div class="controls">
+            <select id="category">
+                <option value="NSE_EQ">NSE Equities</option>
+                <option value="NSE_INDICES">NSE Indices</option>
+                <option value="NSE_FUT_CONT">NSE Futures</option>
+                <option value="NSE_OPT_CONT">NSE Options</option>
+                <option value="BSE_EQ">BSE Equities</option>
+            </select>
+            <button onclick="fetchSymbols()">Fetch Symbols</button>
+        </div>
+        <div id="status-symbols" class="status" style="color: #666;">Waiting for input...</div>
+        <pre id="results-symbols" class="results">Symbol output will appear here...</pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Fetch Historical Candlesticks</h2>
+        <p>Pull maximum available historical chart data for a specific symbol. (Ensure market is open or use a known symbol like NIFTY-I).</p>
+        <div class="controls">
+            <input type="text" id="symbol" placeholder="e.g., NIFTY-I" value="NIFTY-I">
+            
+            <select id="barsize">
+                <option value="tick">Tick (Live Updates)</option>
+                <option value="1 min">1 Min</option>
+                <option value="2 min">2 Min</option>
+                <option value="3 min">3 Min</option>
+                <option value="5 min">5 Min</option>
+                <option value="10 min">10 Min</option>
+                <option value="15 min">15 Min</option>
+                <option value="30 min">30 Min</option>
+                <option value="60 min">60 Min</option>
+                <option value="EOD" selected>1D</option>
+            </select>
+            <button onclick="fetchHistory()">Fetch All Data</button>
+        </div>
+        <div id="status-history" class="status" style="color: #666;">Waiting for input...</div>
+        <pre id="results-history" class="results">Historical candle output will appear here...</pre>
+    </div>
+
+    <script>
+        async function fetchSymbols() {
+            const category = document.getElementById('category').value;
+            const statusDiv = document.getElementById('status-symbols');
+            const resultsDiv = document.getElementById('results-symbols');
+            
+            statusDiv.style.color = "#000";
+            statusDiv.innerHTML = "⏳ Fetching symbols from API...";
+            resultsDiv.innerHTML = "";
+            
+            try {
+                const response = await fetch(`/api/symbols/${category}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.style.color = "green";
+                    statusDiv.innerHTML = `✅ Successfully loaded <b>${data.total_count}</b> symbols. Showing first 100 below:`;
+                    
+                    const displayData = { ...data, symbols: data.symbols.slice(0, 100) };
+                    resultsDiv.innerHTML = JSON.stringify(displayData, null, 2);
+                } else {
+                    statusDiv.style.color = "red";
+                    statusDiv.innerHTML = `❌ API Error: ${data.detail}`;
+                }
+            } catch (error) {
+                statusDiv.style.color = "red";
+                statusDiv.innerHTML = `❌ Network Error: Make sure the backend is running.`;
+            }
+        }
+
+        async function fetchHistory() {
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+            const barsize = document.getElementById('barsize').value;
+            
+            const duration = "10 Y"; 
+            
+            const statusDiv = document.getElementById('status-history');
+            const resultsDiv = document.getElementById('results-history');
+            
+            if (!symbol) {
+                statusDiv.style.color = "red";
+                statusDiv.innerHTML = "❌ Please enter a symbol.";
+                return;
+            }
+
+            statusDiv.style.color = "#000";
+            statusDiv.innerHTML = `⏳ Fetching ALL available data for ${symbol} on ${barsize} timeframe... (This might take a few seconds)`;
+            resultsDiv.innerHTML = "";
+            
+            try {
+                const url = `/api/history/${encodeURIComponent(symbol)}?duration=${encodeURIComponent(duration)}&bar_size=${encodeURIComponent(barsize)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.style.color = "green";
+                    statusDiv.innerHTML = `✅ Loaded <b>${data.total_candles}</b> candles for ${data.symbol}.`;
+                    
+                    const displayData = { 
+                        ...data, 
+                        note: "Displaying all candles",
+                        data: data.data.slice(-1000) 
+                    };
+                    resultsDiv.innerHTML = JSON.stringify(displayData, null, 2);
+                } else {
+                    statusDiv.style.color = "red";
+                    statusDiv.innerHTML = `❌ Error: ${data.detail} (Check terminal for exact TrueData error)`;
+                }
+            } catch (error) {
+                statusDiv.style.color = "red";
+                statusDiv.innerHTML = `❌ Network Error: Make sure the backend is running.`;
+            }
+        }
+    </script>
+</body>
+</html>
