@@ -16,3 +16,10 @@ async def serve_home(request: Request):
 async def serve_strategy(request: Request):
     return templates.TemplateResponse("strategy.html", {"request": request})
 
+@router.get("/chart")
+async def serve_chart(request: Request):
+    return templates.TemplateResponse("chart.html", {"request": request})
+
+
+    
+

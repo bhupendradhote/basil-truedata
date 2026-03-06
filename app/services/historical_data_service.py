@@ -50,14 +50,12 @@ class HistoricalDataService:
         if df is None or df.empty:
             return []
             
-        # Convert timestamp columns to standard strings for JSON compatibility
         if 'time' in df.columns:
             df['time'] = df['time'].astype(str)
         elif df.index.name == 'time':
             df.reset_index(inplace=True)
             df['time'] = df['time'].astype(str)
             
-        # Replace NaN/NaT values with None (which translates to null in JSON)
         df = df.where(pd.notnull(df), None)
         
         return df.to_dict(orient="records")

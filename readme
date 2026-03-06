@@ -3,7 +3,7 @@ python -m venv venv
 Activate It
 venv\Scripts\activate
 
-pip install pandas-ta
+pip install pandas-ta numpy
 
 pip install truedata python-dotenv
 
@@ -12,7 +12,6 @@ pip install fastapi uvicorn jinja2 requests
 
 // connector installed in environment
 pip install mysql-connector-python
-
 pip install pymysql
 
 

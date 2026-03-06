@@ -19,19 +19,24 @@ async def lifespan(app: FastAPI):
     else:
         print("⚠️ Warning: Could not connect to the database. Check if XAMPP is running.")
     
-    yield 
+    yield # The application runs here
     
     print("🛑 Shutting down server...")
 
 # Initialize the FastAPI app with the lifespan event
 app = FastAPI(title="TrueData Market API", lifespan=lifespan)
 
+# Mount static files (Uncomment this once you create an app/static folder for CSS/JS)
+# app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # Include the API routes
 app.include_router(api_router, prefix="/api")
 
+# Include the Web/UI routes (no prefix needed for root paths)
 app.include_router(web_router)
 
 def main():
+    # Fixed the port to match 8001 exactly
     print("🚀 Starting Server on http://127.0.0.1:8001")
     uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)
 
