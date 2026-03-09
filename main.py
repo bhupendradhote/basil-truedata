@@ -23,11 +23,8 @@ async def lifespan(app: FastAPI):
     
     print("🛑 Shutting down server...")
 
-# Initialize the FastAPI app with the lifespan event
-app = FastAPI(title="TrueData Market API", lifespan=lifespan)
 
-# Mount static files (Uncomment this once you create an app/static folder for CSS/JS)
-# app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app = FastAPI(title="TrueData Market API", lifespan=lifespan)
 
 # Include the API routes
 app.include_router(api_router, prefix="/api")

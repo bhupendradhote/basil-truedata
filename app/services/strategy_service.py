@@ -9,6 +9,8 @@ class InstitutionalStrategyService:
         self.MIN_CONFLUENCE = 20
 
     def run_strategy(self, df_5m: pd.DataFrame) -> pd.DataFrame:
+
+        
         if df_5m is None or df_5m.empty:
             print("❌ Strategy Error: Empty DataFrame passed to strategy.")
             return df_5m
@@ -55,7 +57,7 @@ class InstitutionalStrategyService:
             df_5m.ta.ema(length=50, append=True) 
             df_5m.ta.vwap(anchor="D", append=True)           
             df_5m.ta.obv(append=True)             
-            if 'OBV' in df_5m.columns:
+            if 'OBV' in df_5m.columns:  
                 df_5m['OBV_EMA_5'] = ta.ema(df_5m['OBV'], length=5)
 
             # First 5m High/Low for the day
