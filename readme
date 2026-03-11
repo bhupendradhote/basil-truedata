@@ -16,10 +16,8 @@ pip install pymysql
 
 
 
-
 // This will show actual available methods in YOUR installed version.
 python -c "from truedata import TD_hist; print(dir(TD_hist))"
-
 
 python -c "from truedata import TD_hist; import inspect; print(inspect.signature(TD_hist.get_n_historical_bars))"
 
@@ -27,7 +25,7 @@ python -c "from truedata import TD_hist; import inspect; print(inspect.signature
 
 
 
-/ for live ws data, use the URL:
+// for live ws data, use the URL:
 
 https://wstest.truedata.in/
 

@@ -6,7 +6,7 @@ import traceback
 class InstitutionalStrategyService:
     def __init__(self):
         # Strict 20/20 confluence for triggers
-        self.MIN_CONFLUENCE = 20
+        self.MIN_CONFLUENCE = 16
 
     def run_strategy(self, df_5m: pd.DataFrame) -> pd.DataFrame:
 
