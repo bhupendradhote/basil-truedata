@@ -6,10 +6,9 @@ import traceback
 class InstitutionalStrategyService:
     def __init__(self):
         # Strict 20/20 confluence for triggers
-        self.MIN_CONFLUENCE = 16
+        self.MIN_CONFLUENCE = 20
 
     def run_strategy(self, df_5m: pd.DataFrame) -> pd.DataFrame:
-
         
         if df_5m is None or df_5m.empty:
             print("❌ Strategy Error: Empty DataFrame passed to strategy.")
@@ -27,7 +26,6 @@ class InstitutionalStrategyService:
             df_5m['time'] = pd.to_datetime(df_5m[time_col])
             df_5m.set_index('time', inplace=True)
             
-            # Ensure required numeric columns exist
             for col in ['open', 'high', 'low', 'close', 'volume']:
                 if col not in df_5m.columns:
                     alt_col = next((c for c in df_5m.columns if c.lower() == col or c.lower() == col[0]), None)
@@ -117,7 +115,6 @@ class InstitutionalStrategyService:
             df_5m['18_candle_high'] = df_5m['high'].shift(1).rolling(18).max()
             df_5m['18_candle_low'] = df_5m['low'].shift(1).rolling(18).min()
             
-            # Helper for safe default fallback
             zero_series = pd.Series(0, index=df_5m.index)
 
             # 5. Bullish Conditions
@@ -146,6 +143,13 @@ class InstitutionalStrategyService:
             b20 = df_5m['close'] > df_5m.get('1w_prev_high', df_5m['close'])
 
             bullish_conditions = [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20]
+            
+            df_5m['matched_bullish'] = ""
+            for i, cond in enumerate(bullish_conditions):
+                mask = cond.fillna(False).astype(bool)
+                df_5m.loc[mask, 'matched_bullish'] = df_5m.loc[mask, 'matched_bullish'] + str(i + 1) + ","
+            
+            df_5m['matched_bullish'] = df_5m['matched_bullish'].str.rstrip(',')
             df_5m['bullish_score'] = sum(cond.fillna(False).astype(int) for cond in bullish_conditions)
 
             # 6. Bearish Conditions
@@ -173,13 +177,19 @@ class InstitutionalStrategyService:
             s20 = df_5m['close'] < df_5m.get('1w_prev_low', df_5m['close'])
 
             bearish_conditions = [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20]
+            
+            df_5m['matched_bearish'] = ""
+            for i, cond in enumerate(bearish_conditions):
+                mask = cond.fillna(False).astype(bool)
+                df_5m.loc[mask, 'matched_bearish'] = df_5m.loc[mask, 'matched_bearish'] + str(i + 1) + ","
+            
+            df_5m['matched_bearish'] = df_5m['matched_bearish'].str.rstrip(',')
             df_5m['bearish_score'] = sum(cond.fillna(False).astype(int) for cond in bearish_conditions)
 
             # Apply Threshold Confluence
             df_5m['is_bullish'] = df_5m['bullish_score'] >= self.MIN_CONFLUENCE
             df_5m['is_bearish'] = df_5m['bearish_score'] >= self.MIN_CONFLUENCE
 
-            # Clean up and prepare for JSON
             df_5m.reset_index(inplace=True)
             df_5m['time'] = df_5m['time'].astype(str)
             df_5m.drop(columns=['date_only'], inplace=True, errors='ignore')
