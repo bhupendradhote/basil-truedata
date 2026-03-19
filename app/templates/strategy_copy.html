@@ -160,7 +160,6 @@
         </div>
 
         <button class="btn-strategy" onclick="runStrategy()">Run Institutional Strategy</button>
-        <button class="btn-strategy" onclick="scanNseEqSignals()">Scan NSE_EQ Signals</button>
     </div>
 
     <div id="status-bar">System Ready. Select a market category to begin.</div>
@@ -173,16 +172,58 @@
     <div id="current-status"></div>
     <div id="trades-table"></div>
 
-    <h2 style="font-size: 18px; margin-top: 10px;">Institutional Confluence Strategy</h2>
+    <h2 style="font-size: 18px; margin-top: 10px;">Institutional Confluence Strategy (Trigger requires 20/20 Conditions)</h2>
     <div class="rules-container">
         <div class="rules-card bullish">
-            <h3>🟢 Bullish Conditions (Trigger requires 19/19)</h3>
-            <ul class="rules-list" id="ui-bullish-rules"></ul>
+            <h3>🟢 Bullish Conditions</h3>
+            <ul class="rules-list">
+                <li><span>1</span> 5m ADX (14) > 30 (Strong Trend)</li>
+                <li><span>2</span> 5m Close > Last 4 Days Max Close (Breakout)</li>
+                <li><span>3</span> 5m High > First 5m Candle High (Intraday Bullish)</li>
+                <li><span>4</span> 5m Close >= Highest High of last 18 candles</li>
+                <li><span>5</span> 4h Fast Stochastic > Slow Stochastic</li>
+                <li><span>6</span> 4h Close > 4h EMA (9)</li>
+                <li><span>7</span> Prev 4h Close > Prev 4h EMA (9)</li>
+                <li><span>8</span> 4h Close > 4h EMA (50)</li>
+                <li><span>9</span> 1h RSI (14) > 60</li>
+                <li><span>10</span> 1h EMA (9) > 1h EMA (50)</li>
+                <li><span>11</span> 15m MACD Line > Signal Line</li>
+                <li><span>12</span> 15m Heikin-Ashi EMA (5) > HA EMA (9)</li>
+                <li><span>13</span> 5m Close > Daily VWAP</li>
+                <li><span>14</span> 5m EMA (20) > 5m EMA (50)</li>
+                <li><span>15</span> 5m OBV > 5m OBV EMA (5)</li>
+                <li><span>16</span> Body Size > 60% of High-Low Range (Conviction)</li>
+                <li><span>17</span> 1W EMA (9) > 1W EMA (50) (Macro Bullish)</li>
+                <li><span>18</span> 1D Close > 1D EMA (50)</li>
+                <li><span>19</span> 1D Close > 1D EMA (9)</li>
+                <li><span>20</span> 5m Close > Last Week's High</li>
+            </ul>
         </div>
         
         <div class="rules-card bearish">
-            <h3>🔴 Bearish Conditions (Trigger requires 18/18)</h3>
-            <ul class="rules-list" id="ui-bearish-rules"></ul>
+            <h3>🔴 Bearish Conditions</h3>
+            <ul class="rules-list">
+                <li><span>1</span> 5m ADX (14) > 30 (Strong Trend)</li>
+                <li><span>2</span> 5m Low < First 5m Candle Low (Intraday Bearish)</li>
+                <li><span>3</span> 5m Close <= Lowest Low of last 18 candles</li>
+                <li><span>4</span> 5m Close < Yesterday's Low</li>
+                <li><span>5</span> 4h Fast Stochastic < Slow Stochastic</li>
+                <li><span>6</span> 4h Close < 4h EMA (9)</li>
+                <li><span>7</span> Prev 4h Close < Prev 4h EMA (9)</li>
+                <li><span>8</span> 4h Close < 4h EMA (50)</li>
+                <li><span>9</span> 1h RSI (14) < 40</li>
+                <li><span>10</span> 1h EMA (9) < 1h EMA (50)</li>
+                <li><span>11</span> 15m MACD Line < Signal Line</li>
+                <li><span>12</span> 15m Heikin-Ashi EMA (5) < HA EMA (9)</li>
+                <li><span>13</span> 5m Close < Daily VWAP</li>
+                <li><span>14</span> 5m EMA (20) < 5m EMA (50)</li>
+                <li><span>15</span> 5m OBV < 5m OBV EMA (5)</li>
+                <li><span>16</span> Body Size > 55% of High-Low Range (Conviction)</li>
+                <li><span>17</span> 1W EMA (9) < 1W EMA (50) (Macro Bearish)</li>
+                <li><span>18</span> 1D Close < 1D EMA (50)</li>
+                <li><span>19</span> 1D Close < 1D EMA (9)</li>
+                <li><span>20</span> 5m Close < Last Week's Low</li>
+            </ul>
         </div>
     </div>
 
@@ -191,51 +232,22 @@
         let chart, candleSeries, volSeries;
 
         const BULLISH_RULE_NAMES = [
-            "5m ADX (14) > 30 (Strong Trend)",
-            "5m Close > Last 4 Days Max Close",
-            "5m High > First 5m High of the Day",
-            "5m Close >= Highest High of last 18 candles",
-            "4h Fast Stochastic > Slow Stochastic",
-            "4h Close > 4h EMA (9)",
-            "Prev 4h Close > Prev 4h EMA (9)",
-            "4h Close > 4h EMA (50)",
-            "1h RSI (14) > 60",
-            "1h EMA (9) > 1h EMA (50)",
-            "15m MACD Line > Signal Line",
-            "15m HA EMA (5) > HA EMA (9)",
-            "5m Close > Daily VWAP",
-            "5m EMA (20) > 5m EMA (50)",
-            "5m OBV > 5m OBV EMA (5)",
-            "Body Size > 55% of High-Low Range",
-            "Last 10-candle H-L range < 5 × ATR (14)",
-            "5m Volume > Avg 2x Volume of last 200 candles",
-            "5m Close > Yesterday's High"
+            "5m ADX (14) > 30 (Strong Trend)", "5m Close > Last 4 Days Max Close", "5m High > First 5m Candle High", 
+            "5m Close >= Highest High of last 18 candles", "4h Fast Stochastic > Slow Stochastic", "4h Close > 4h EMA (9)", 
+            "Prev 4h Close > Prev 4h EMA (9)", "4h Close > 4h EMA (50)", "1h RSI (14) > 60", "1h EMA (9) > 1h EMA (50)", 
+            "15m MACD Line > Signal Line", "15m Heikin-Ashi EMA (5) > HA EMA (9)", "5m Close > Daily VWAP", 
+            "5m EMA (20) > 5m EMA (50)", "5m OBV > 5m OBV EMA (5)", "Body Size > 60% of High-Low Range", 
+            "1W EMA (9) > 1W EMA (50) (Macro)", "1D Close > 1D EMA (50)", "1D Close > 1D EMA (9)", "5m Close > Last Week's High"
         ];
         
         const BEARISH_RULE_NAMES = [
-            "5m ADX (14) > 30 (Strong Trend)",
-            "5m Low < First 5m Low of the Day",
-            "5m Close <= Lowest Low of last 18 candles",
-            "5m Close < Yesterday's Low",
-            "4h Fast Stochastic < Slow Stochastic",
-            "4h Close < 4h EMA (9)",
-            "Prev 4h Close < Prev 4h EMA (9)",
-            "4h Close < 4h EMA (50)",
-            "1h RSI (14) < 40",
-            "1h EMA (9) < 1h EMA (50)",
-            "15m MACD Line < Signal Line",
-            "15m HA EMA (5) < HA EMA (9)",
-            "5m Close < Daily VWAP",
-            "5m EMA (20) < 5m EMA (50)",
-            "5m OBV < 5m OBV EMA (5)",
-            "Body Size > 55% of High-Low Range",
-            "Last 10-candle H-L range < 5 × ATR (14)",
-            "5m Volume > Avg 2x Volume of last 200 candles"
+            "5m ADX (14) > 30 (Strong Trend)", "5m Low < First 5m Candle Low", "5m Close <= Lowest Low of last 18 candles", 
+            "5m Close < Yesterday's Low", "4h Fast Stochastic < Slow Stochastic", "4h Close < 4h EMA (9)", 
+            "Prev 4h Close < Prev 4h EMA (9)", "4h Close < 4h EMA (50)", "1h RSI (14) < 40", "1h EMA (9) < 1h EMA (50)", 
+            "15m MACD Line < Signal Line", "15m Heikin-Ashi EMA (5) < HA EMA (9)", "5m Close < Daily VWAP", 
+            "5m EMA (20) < 5m EMA (50)", "5m OBV < 5m OBV EMA (5)", "Body Size > 55% of High-Low Range", 
+            "1W EMA (9) < 1W EMA (50) (Macro)", "1D Close < 1D EMA (50)", "1D Close < 1D EMA (9)", "5m Close < Last Week's Low"
         ];
-
-        // Populate Static Rules UI
-        document.getElementById('ui-bullish-rules').innerHTML = BULLISH_RULE_NAMES.map((r, i) => `<li><span>${i+1}</span> ${r}</li>`).join('');
-        document.getElementById('ui-bearish-rules').innerHTML = BEARISH_RULE_NAMES.map((r, i) => `<li><span>${i+1}</span> ${r}</li>`).join('');
 
         function initChart() {
             if (chart) return; 
@@ -307,7 +319,7 @@
                     dropdown.appendChild(opt);
                 });
                 
-                status.innerHTML = `✅ Loaded <b>${data.total_count}</b> symbols. Select one and click Run.`;
+                status.innerHTML = `✅ Loaded <b>${data.total_count}</b> symbols. Select one and click Render Chart.`;
                 status.style.color = "var(--success)";
             } catch (err) {
                 status.innerHTML = "❌ Failed to fetch symbols. Make sure your FastAPI server is running.";
@@ -322,11 +334,11 @@
 
             if (!symbol || symbol === "Loading...") { alert("Please fetch a market category and select a symbol first."); return; }
 
-            status.innerHTML = `⏳ Analyzing multi-timeframe data for ${symbol}. Pulling 2 Years of data...`;
+            status.innerHTML = `⏳ Analyzing multi-timeframe data for ${symbol}. Pulling 2 Years of data for 50-Week EMA calculation...`;
             status.style.color = "var(--text)";
 
             try {
-                const url = `${API_BASE}/strategy/${encodeURIComponent(symbol)}?duration=1 Y`;
+                const url = `${API_BASE}/strategy/${encodeURIComponent(symbol)}?duration=2 Y`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("API error. Ensure your FastAPI server is running.");
                 
@@ -381,6 +393,7 @@
                 const bullScore = apiCurrent.bullish_score || 0;
                 const bearScore = apiCurrent.bearish_score || 0;
                 
+                // Directly parsing the matched strings from the backend
                 const bullMatchesStr = String(apiCurrent.matched_bullish || "");
                 const bearMatchesStr = String(apiCurrent.matched_bearish || "");
 
@@ -402,10 +415,10 @@
 
                 currentStatusDiv.innerHTML = `
                     <div class="header-title">Current 5m Candle Status</div>
-                    <span class="score-line bullish">🟢 Bullish: ${bullScore}/19</span> &nbsp; | &nbsp; 
-                    <span class="score-line bearish">🔴 Bearish: ${bearScore}/18</span>
+                    <span class="score-line bullish">🟢 Bullish: ${bullScore}/20</span> &nbsp; | &nbsp; 
+                    <span class="score-line bearish">🔴 Bearish: ${bearScore}/20</span>
                     
-                    <div class="matched-rules-wrapper" style="display:none;">
+                    <div class="matched-rules-wrapper">
                         <div class="matched-rules-col" style="border-left: 4px solid var(--success);">
                             <h4 class="bullish">🟢 Matched Bullish Rules</h4>
                             <ul>${bullMatchesHTML || '<li style="color:#666; font-style:italic;">No conditions matched</li>'}</ul>
@@ -430,13 +443,12 @@
                     signals.forEach(sig => {
                         const emoji = sig.color === '#3fb950' ? '🟢' : '🔴';
                         const timeStr = new Date(sig.time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-                        const maxScore = sig.color === '#3fb950' ? 19 : 18;
-                        html += `<tr><td>${timeStr}</td><td>${emoji} ${sig.text}</td><td>${sig.score}/${maxScore}</td></tr>`;
+                        html += `<tr><td>${timeStr}</td><td>${emoji} ${sig.text}</td><td>${sig.score}/20</td></tr>`;
                     });
                     html += '</tbody></table>';
                     tradesTableDiv.innerHTML = html;
                 } else {
-                    tradesTableDiv.innerHTML = '<h3>No Historical Signals Found (Threshold Not Met)</h3>';
+                    tradesTableDiv.innerHTML = '<h3>No Historical Signals Found (20/20 Threshold Not Met)</h3>';
                 }
                 tradesTableDiv.style.display = 'block';
 
@@ -446,84 +458,6 @@
                 status.style.color = "var(--danger)";
             }
         }
-
-         async function scanNseEqSignals() {
-        const status = document.getElementById('status-bar');
-        const tradesTableDiv = document.getElementById('trades-table');
-
-        status.innerHTML = `⏳ Scanning all NSE_EQ stocks for current signals...`;
-        status.style.color = "var(--text)";
-        tradesTableDiv.style.display = 'none';
-
-        try {
-            const params = new URLSearchParams({
-                duration: "2 Y",
-                bar_size: "5 min",
-                direction: "both"
-            });
-
-            const res = await fetch(`${API_BASE}/scanner/nse-eq/current-signals?${params.toString()}`);
-            if (!res.ok) throw new Error(`API Error ${res.status}`);
-
-            const data = await res.json();
-            const results = data.results || [];
-
-            let html = `
-                <h3>Current NSE_EQ Signals (${results.length})</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Symbol</th>
-                            <th>Signal</th>
-                            <th>Score</th>
-                            <th>Matched Rules</th>
-                            <th>Time</th>
-                            <th>Close</th>
-                            <th>Volume</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            if (results.length > 0) {
-                results.forEach(r => {
-                    const emoji = r.signal === 'BUY' ? '🟢' : '🔴';
-                    html += `
-                        <tr>
-                            <td>${r.symbol}</td>
-                            <td>${emoji} ${r.signal}</td>
-                            <td>${r.score}</td>
-                            <td>${r.matched_count || 0}</td>
-                            <td>${r.time || ''}</td>
-                            <td>${Number(r.close || 0).toFixed(2)}</td>
-                            <td>${Number(r.volume || 0).toLocaleString('en-IN')}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                html += `
-                    <tr>
-                        <td colspan="7" style="text-align:center; color:#888; font-style:italic;">
-                            No live signals found right now
-                        </td>
-                    </tr>
-                `;
-            }
-
-            html += `</tbody></table>`;
-
-            tradesTableDiv.innerHTML = html;
-            tradesTableDiv.style.display = 'block';
-
-            status.innerHTML = `✅ Scan complete. Bullish: <b>${data.bullish_count || 0}</b> | Bearish: <b>${data.bearish_count || 0}</b>`;
-            status.style.color = "var(--success)";
-
-        } catch (err) {
-            console.error(err);
-            status.innerHTML = `❌ Scanner failed: ${err.message}`;
-            status.style.color = "var(--danger)";
-        }
-    }
     </script>
 </body>
 </html>

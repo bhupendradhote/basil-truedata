@@ -20,6 +20,10 @@ async def serve_strategy(request: Request):
 async def serve_chart(request: Request):
     return templates.TemplateResponse("chart.html", {"request": request})
 
+@router.get("/fib_chart")
+async def fib_chart(request: Request):
+    return templates.TemplateResponse("auto_fib_chart.html", {"request": request})
+
 
     
 

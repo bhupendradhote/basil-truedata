@@ -1,6 +1,7 @@
 import pandas as pd
 import pandas_ta as ta
 import numpy as np
+import traceback
 
 class InstitutionalStrategyService:
     def __init__(self):
@@ -75,6 +76,8 @@ class InstitutionalStrategyService:
             df_5m['18_candle_low'] = df_5m['low'].shift(1).rolling(18).min()
             df_5m['10_candle_range'] = df_5m['high'].rolling(10).max() - df_5m['low'].rolling(10).min()
 
+            # df_5m['avg_vol_20'] = df_5m['volume'].shift(1).rolling(20).mean()
+            
             df_5m['avg_vol_20'] = df_5m['volume'].shift(1).rolling(200).mean()
             df_5m['vol_double'] = df_5m['volume'] >= (df_5m['avg_vol_20'] * 2)
 
@@ -134,7 +137,11 @@ class InstitutionalStrategyService:
             b15 = df_5m.get('OBV', zero_series) > df_5m.get('OBV_EMA_5', zero_series)
             b16 = body_size > (0.55 * hl_range)
             b17 = df_5m.get('10_candle_range', zero_series) < (5 * df_5m.get('ATRr_14', hl_range))
+            # b18 = df_5m['volume'] > df_5m.get('avg_vol_20', zero_series)
+
+            df_5m['avg_vol_20'] = df_5m['volume'].shift(1).rolling(200).mean()
             b18 = df_5m['volume'] > (df_5m.get('avg_vol_20', zero_series) * 2)
+
             b19 = df_5m['close'] > df_5m.get('1d_prev_high', df_5m['close'])
 
             bullish_conditions = [b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19]
@@ -183,37 +190,13 @@ class InstitutionalStrategyService:
 
             df_5m.reset_index(inplace=True)
             df_5m['time'] = df_5m['time'].astype(str)
-
+            df_5m.drop(columns=['date_only'], inplace=True, errors='ignore')
+            df_5m = df_5m.replace([np.nan, np.inf, -np.inf], None)
+            
+            print(f"✅ Strategy Complete. Highest Confluence Score Found: Bullish({df_5m['bullish_score'].max()}/19), Bearish({df_5m['bearish_score'].max()}/18)")
             return df_5m
 
         except Exception as e:
-            print(f"❌ Strategy Error: {e}")
+            print(f"\n❌ FATAL STRATEGY ERROR: {e}")
+            traceback.print_exc() 
             return None
-
-    def get_latest_signal(self, df_5m: pd.DataFrame) -> dict:
-        """
-        Runs the strategy and extracts the signal ONLY for the very last candle.
-        """
-        processed_df = self.run_strategy(df_5m)
-        
-        if processed_df is None or processed_df.empty:
-            return None
-
-        # Extract only the final, most recently closed candle
-        latest_row = processed_df.iloc[-1]
-        
-        # Check if the last row triggers a threshold
-        if latest_row.get('is_bullish', False):
-            return {
-                "signal": "Bullish",
-                "score": int(latest_row['bullish_score']),
-                "time": str(latest_row['time'])
-            }
-        elif latest_row.get('is_bearish', False):
-            return {
-                "signal": "Bearish",
-                "score": int(latest_row['bearish_score']),
-                "time": str(latest_row['time'])
-            }
-            
-        return None

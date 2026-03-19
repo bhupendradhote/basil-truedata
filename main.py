@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from app.api.routes import router as api_router
+from app.api.fib_routes import router as fib_router
 from app.routes.views import router as web_router  
 from app.config.db import get_db_connection
 
@@ -19,7 +20,7 @@ async def lifespan(app: FastAPI):
     else:
         print("⚠️ Warning: Could not connect to the database. Check if XAMPP is running.")
     
-    yield # The application runs here
+    yield
     
     print("🛑 Shutting down server...")
 
@@ -28,6 +29,7 @@ app = FastAPI(title="TrueData Market API", lifespan=lifespan)
 
 # Include the API routes
 app.include_router(api_router, prefix="/api")
+app.include_router(fib_router, prefix="/api")
 
 # Include the Web/UI routes (no prefix needed for root paths)
 app.include_router(web_router)

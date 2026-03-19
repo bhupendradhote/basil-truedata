@@ -160,7 +160,6 @@
         </div>
 
         <button class="btn-strategy" onclick="runStrategy()">Run Institutional Strategy</button>
-        <button class="btn-strategy" onclick="scanNseEqSignals()">Scan NSE_EQ Signals</button>
     </div>
 
     <div id="status-bar">System Ready. Select a market category to begin.</div>
@@ -326,7 +325,7 @@
             status.style.color = "var(--text)";
 
             try {
-                const url = `${API_BASE}/strategy/${encodeURIComponent(symbol)}?duration=1 Y`;
+                const url = `${API_BASE}/strategy/${encodeURIComponent(symbol)}?duration=2 Y`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("API error. Ensure your FastAPI server is running.");
                 
@@ -446,84 +445,6 @@
                 status.style.color = "var(--danger)";
             }
         }
-
-         async function scanNseEqSignals() {
-        const status = document.getElementById('status-bar');
-        const tradesTableDiv = document.getElementById('trades-table');
-
-        status.innerHTML = `⏳ Scanning all NSE_EQ stocks for current signals...`;
-        status.style.color = "var(--text)";
-        tradesTableDiv.style.display = 'none';
-
-        try {
-            const params = new URLSearchParams({
-                duration: "2 Y",
-                bar_size: "5 min",
-                direction: "both"
-            });
-
-            const res = await fetch(`${API_BASE}/scanner/nse-eq/current-signals?${params.toString()}`);
-            if (!res.ok) throw new Error(`API Error ${res.status}`);
-
-            const data = await res.json();
-            const results = data.results || [];
-
-            let html = `
-                <h3>Current NSE_EQ Signals (${results.length})</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Symbol</th>
-                            <th>Signal</th>
-                            <th>Score</th>
-                            <th>Matched Rules</th>
-                            <th>Time</th>
-                            <th>Close</th>
-                            <th>Volume</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            if (results.length > 0) {
-                results.forEach(r => {
-                    const emoji = r.signal === 'BUY' ? '🟢' : '🔴';
-                    html += `
-                        <tr>
-                            <td>${r.symbol}</td>
-                            <td>${emoji} ${r.signal}</td>
-                            <td>${r.score}</td>
-                            <td>${r.matched_count || 0}</td>
-                            <td>${r.time || ''}</td>
-                            <td>${Number(r.close || 0).toFixed(2)}</td>
-                            <td>${Number(r.volume || 0).toLocaleString('en-IN')}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                html += `
-                    <tr>
-                        <td colspan="7" style="text-align:center; color:#888; font-style:italic;">
-                            No live signals found right now
-                        </td>
-                    </tr>
-                `;
-            }
-
-            html += `</tbody></table>`;
-
-            tradesTableDiv.innerHTML = html;
-            tradesTableDiv.style.display = 'block';
-
-            status.innerHTML = `✅ Scan complete. Bullish: <b>${data.bullish_count || 0}</b> | Bearish: <b>${data.bearish_count || 0}</b>`;
-            status.style.color = "var(--success)";
-
-        } catch (err) {
-            console.error(err);
-            status.innerHTML = `❌ Scanner failed: ${err.message}`;
-            status.style.color = "var(--danger)";
-        }
-    }
     </script>
 </body>
 </html>

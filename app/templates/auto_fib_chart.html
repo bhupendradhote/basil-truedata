@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Fib & EMA Strategy Terminal</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root { 
+            --bg: #0d1117; 
+            --panel: #161b22; 
+            --text: #c9d1d9; 
+            --accent: #2f81f7; 
+            --border: #30363d; 
+            --ema9: #2f81f7;
+            --ema21: #d2a8ff;
+            --success: #3fb950;
+            --danger: #f85149;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: var(--bg); 
+            color: var(--text); 
+        }
+        h1 { font-size: 22px; font-weight: 500; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        
+        .toolbar { 
+            background: var(--panel); 
+            padding: 15px 20px; 
+            border-radius: 6px; 
+            border: 1px solid var(--border); 
+            display: flex; 
+            gap: 20px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            margin-bottom: 20px; 
+        }
+        .toolbar-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 12px; color: #8b949e; font-weight: 600; text-transform: uppercase; }
+        select, button { 
+            padding: 8px 12px; 
+            font-size: 14px; 
+            border-radius: 4px; 
+            border: 1px solid var(--border); 
+            background: var(--bg); 
+            color: var(--text); 
+            outline: none; 
+        }
+        select:focus { border-color: var(--accent); }
+        button { 
+            background: var(--accent); 
+            color: white; 
+            cursor: pointer; 
+            font-weight: 600; 
+            border: none; 
+            margin-top: 20px;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.85; }
+
+        #status-bar { font-family: monospace; font-size: 13px; margin-bottom: 15px; color: #8b949e; }
+
+        #chart-container { 
+            width: 100%; 
+            height: 650px; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            background: var(--bg);
+            position: relative;
+        }
+
+        #legend { 
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            z-index: 2; 
+            font-size: 13px; 
+            font-family: monospace;
+            background: rgba(22, 27, 34, 0.85); 
+            padding: 10px 15px; 
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            pointer-events: none;
+        }
+        .indicator-label { margin-left: 15px; font-weight: bold; }
+        .c-ema9 { color: var(--ema9); }
+        .c-ema21 { color: var(--ema21); }
+    </style>
+</head>
+<body>
+
+    <h1>📐 Auto Fibonacci + 9/21 EMA Tracker</h1>
+
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <label>1. Market</label>
+            <select id="category" onchange="fetchSymbols()">
+                <option value="" disabled selected>Select...</option>
+                <option value="NSE_EQ">NSE Equities</option>
+                <option value="NSE_INDICES">NSE Indices</option>
+                <option value="NSE_FUT_CONT">NSE Futures</option>
+            </select>
+        </div>
+
+        <div class="toolbar-group">
+            <label>2. Symbol</label>
+            <select id="symbol-dropdown" style="min-width: 200px;">
+                <option value="">Waiting...</option>
+            </select>
+        </div>
+
+        <div class="toolbar-group">
+            <label>3. Timeframe</label>
+            <select id="barsize">
+                <option value="1 min">1 Min</option>
+                <option value="5 min" selected>5 Min</option>
+                <option value="15 min">15 Min</option>
+                <option value="60 min">1 Hour</option>
+                <option value="EOD">Daily (EOD)</option>
+            </select>
+        </div>
+
+        <div class="toolbar-group">
+            <label>4. Duration</label>
+            <select id="duration">
+                <option value="5 D">5 Days</option>
+                <option value="15 D">15 Days</option>
+                <option value="1 M">1 Month</option>
+                <option value="3 M">3 Months</option>
+                <option value="6 M">6 Months</option>
+                <option value="1 Y" selected>1 Year</option>
+                <option value="2 Y">2 Years</option>
+                <option value="5 Y">5 Years</option>
+            </select>
+        </div>
+
+        <button onclick="loadChart()">Render Strategy Chart</button>
+    </div>
+
+    <div id="status-bar">System Ready.</div>
+
+    <div id="chart-container">
+        <div id="legend">Waiting for data...</div>
+    </div>
+
+    <script>
+        const API_BASE = "/api";
+        let chart, candleSeries, ema9Series, ema21Series;
+        let activeFibLines = []; 
+
+        function initChart() {
+            if (chart) return;
+            const container = document.getElementById('chart-container');
+            chart = LightweightCharts.createChart(container, {
+                layout: { background: { color: '#0d1117' }, textColor: '#c9d1d9' },
+                grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                rightPriceScale: { borderColor: '#30363d' },
+                timeScale: { borderColor: '#30363d', timeVisible: true }
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#3fb950', downColor: '#f85149', 
+                borderVisible: false, wickUpColor: '#3fb950', wickDownColor: '#f85149'
+            });
+
+            ema9Series = chart.addLineSeries({ color: '#2f81f7', lineWidth: 2, title: '9 EMA', crosshairMarkerVisible: false });
+            ema21Series = chart.addLineSeries({ color: '#d2a8ff', lineWidth: 2, title: '21 EMA', crosshairMarkerVisible: false });
+            
+            new ResizeObserver(entries => {
+                if (entries.length === 0) return;
+                chart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+            }).observe(container);
+        }
+
+        async function fetchSymbols() {
+            const category = document.getElementById('category').value;
+            const dropdown = document.getElementById('symbol-dropdown');
+            const status = document.getElementById('status-bar');
+
+            status.innerHTML = `Fetching symbols for ${category}...`;
+            dropdown.innerHTML = '<option>Loading...</option>';
+
+            try {
+                const res = await fetch(`${API_BASE}/symbols/${category}`);
+                if (!res.ok) throw new Error("API Error");
+                const data = await res.json();
+
+                dropdown.innerHTML = ''; 
+                data.symbols.forEach(sym => {
+                    let opt = document.createElement('option');
+                    opt.value = sym;
+                    opt.innerHTML = sym;
+                    dropdown.appendChild(opt);
+                });
+                status.innerHTML = `Loaded ${data.total_count} symbols.`;
+            } catch (err) {
+                status.innerHTML = `<span style="color:var(--danger)">Failed to fetch symbols.</span>`;
+                dropdown.innerHTML = '<option>Error</option>';
+            }
+        }
+
+        async function loadChart() {
+            const symbol = document.getElementById('symbol-dropdown').value;
+            const barSize = document.getElementById('barsize').value;
+            const duration = document.getElementById('duration').value;
+            const status = document.getElementById('status-bar');
+
+            if (!symbol || symbol === "Loading..." || symbol === "Waiting...") {
+                alert("Please select a valid symbol first.");
+                return;
+            }
+
+            initChart();
+            status.innerHTML = `Fetching ${duration} of ${barSize} data for ${symbol}...`;
+
+            try {
+                // Pass both user-selected bar_size and user-selected duration to API
+                const url = `${API_BASE}/strategy/autofib/${encodeURIComponent(symbol)}?bar_size=${encodeURIComponent(barSize)}&duration=${encodeURIComponent(duration)}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || `HTTP ${res.status}`);
+                }
+                
+                const payload = await res.json();
+                const candles = [], ema9Data = [], ema21Data = [];
+
+                payload.data.forEach(d => {
+                    const timeUnix = new Date(d.time).getTime() / 1000;
+                    candles.push({ time: timeUnix, open: d.open, high: d.high, low: d.low, close: d.close });
+                    if (d.EMA_9 !== null) ema9Data.push({ time: timeUnix, value: d.EMA_9 });
+                    if (d.EMA_21 !== null) ema21Data.push({ time: timeUnix, value: d.EMA_21 });
+                });
+
+                candleSeries.setData(candles);
+                ema9Series.setData(ema9Data);
+                ema21Series.setData(ema21Data);
+
+                // Add Crossover Markers
+                const markers = payload.signals.map(s => ({
+                    time: new Date(s.time).getTime() / 1000,
+                    position: s.position, color: s.color, shape: s.shape, text: s.text
+                }));
+                candleSeries.setMarkers(markers);
+
+                // Clear previous Fibonacci Lines
+                if (activeFibLines.length > 0) {
+                    activeFibLines.forEach(line => candleSeries.removePriceLine(line));
+                    activeFibLines = [];
+                }
+
+                // Draw New Fibonacci Horizontal Lines
+                const fibColors = {
+                    "1.000 (High)": "#f85149", "0.786": "#8957e5", "0.618": "#3fb950", 
+                    "0.500": "#d2a8ff", "0.382": "#3fb950", "0.236": "#8957e5", "0.000 (Low)": "#f85149"
+                };
+
+                Object.entries(payload.fib_levels).forEach(([level, price]) => {
+                    const isEdge = level === "1.000 (High)" || level === "0.000 (Low)";
+                    const line = candleSeries.createPriceLine({
+                        price: price,
+                        color: fibColors[level] || '#fff',
+                        lineWidth: isEdge ? 2 : 1,
+                        lineStyle: isEdge ? LightweightCharts.LineStyle.Solid : LightweightCharts.LineStyle.SparseDotted,
+                        axisLabelVisible: true,
+                        title: `Fib ${level}`
+                    });
+                    activeFibLines.push(line);
+                });
+
+                chart.timeScale().fitContent();
+                status.innerHTML = `✅ Rendered <b>${payload.total_candles}</b> candles (${payload.bar_size}). Lookback High: ${payload.fib_levels['1.000 (High)'].toFixed(2)} | Low: ${payload.fib_levels['0.000 (Low)'].toFixed(2)}`;
+
+                // Crosshair Legend Update
+                chart.subscribeCrosshairMove((param) => {
+                    const legend = document.getElementById('legend');
+                    if (!param.time || param.point.x < 0 || param.point.y < 0) return;
+                    
+                    const price = param.seriesData.get(candleSeries);
+                    const e9 = param.seriesData.get(ema9Series);
+                    const e21 = param.seriesData.get(ema21Series);
+                    
+                    if (price) {
+                        legend.innerHTML = `
+                            <span style="color:var(--accent); font-weight:bold;">${symbol} (${barSize})</span><br><br>
+                            O: ${price.open.toFixed(2)}<br>
+                            H: ${price.high.toFixed(2)}<br>
+                            L: ${price.low.toFixed(2)}<br>
+                            C: ${price.close.toFixed(2)}<br><br>
+                            <span class="c-ema9">EMA 9: ${e9 ? e9.value.toFixed(2) : '-'}</span><br>
+                            <span class="c-ema21">EMA 21: ${e21 ? e21.value.toFixed(2) : '-'}</span>
+                        `;
+                    }
+                });
+
+                document.getElementById('legend').innerHTML = `<span style="color:var(--accent); font-weight:bold;">${symbol}</span><br>Hover over chart for details.`;
+
+            } catch (err) {
+                console.error(err);
+                status.innerHTML = `<span style="color:var(--danger)">Error loading data: ${err.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
